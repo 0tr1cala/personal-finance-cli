@@ -78,6 +78,8 @@ class FinanceService:
         wallet = self._wallet(); name = name.strip()
         if not name or kind not in ("income", "expense"):
             raise ValueError("Укажите название и тип категории income или expense.")
+        if name in wallet.categories and wallet.categories[name] != kind:
+            raise ValueError(f"Категория «{name}» уже существует с другим типом.")
         wallet.categories[name] = kind
         self.store.save(wallet)
 
@@ -196,8 +198,13 @@ class FinanceService:
         imported = Wallet.from_dict(data)
         if imported.username != wallet.username:
             raise ValueError("Файл принадлежит другому пользователю.")
+        for category, kind in imported.categories.items():
+            if not category.strip() or kind not in ("income", "expense"):
+                raise ValueError(f"Некорректная категория в файле: {category}.")
         for op in imported.operations:
             Operation.create(op.kind, op.category, op.amount, op.created_at, op.note)
+            if imported.categories.get(op.category) != op.kind:
+                raise ValueError(f"Категория «{op.category}» отсутствует или имеет неверный тип.")
         for category, amount in imported.budgets.items():
             money(amount)
             if imported.categories.get(category) != "expense":
