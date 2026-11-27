@@ -158,7 +158,7 @@ class FinanceService:
         return {"income": self.total("income"), "expense": self.total("expense"), "balance": wallet.balance,
                 "by_category": totals, "budgets": budgets}
 
-    def transfer(self, recipient: str, amount: object, note: str = "Перевод") -> None:
+    def transfer(self, recipient: str, amount: object, note: str = "Перевод") -> list[str]:
         sender_wallet = self._wallet()
         if recipient == sender_wallet.username:
             raise ValueError("Нельзя переводить деньги самому себе.")
@@ -178,6 +178,12 @@ class FinanceService:
         sender_wallet.operations.append(sender)
         recipient_wallet.operations.append(incoming)
         self.store.save(sender_wallet); self.store.save(recipient_wallet)
+        warnings = []
+        if sender_wallet.balance < 0:
+            warnings.append("Расходы превысили доходы: баланс отрицательный.")
+        elif sender_wallet.balance == 0:
+            warnings.append("Баланс кошелька равен нулю.")
+        return warnings
 
     def export(self, path: str, format_: str = "json") -> None:
         wallet = self._wallet()
