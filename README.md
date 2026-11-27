@@ -26,7 +26,7 @@ category income Зарплата
 expense Еда 300
 income Зарплата 20000 2025-01-15 Аванс
 budget Еда 4000
-total expense Еда,Коммунальные
+total expense "Еда,Коммунальные услуги"
 report
 export report.json json
 exit
@@ -53,4 +53,3 @@ python -m unittest discover -s tests -v
 ```
 
 Тесты используют временные каталоги и не меняют пользовательские данные.
-
