@@ -1,5 +1,4 @@
 import shlex
-from decimal import Decimal
 
 from .service import FinanceService
 
@@ -9,13 +8,14 @@ HELP = """Команды:
   login <логин> <пароль>          войти в аккаунт
   logout                          сохранить кошелёк и выйти
   category <income|expense> <название>
+  rename-category <старое> <новое>  переименовать категорию
   income <категория> <сумма> [YYYY-MM-DD] [заметка]
   expense <категория> <сумма> [YYYY-MM-DD] [заметка]
   budget <категория> <лимит>      создать или изменить бюджет
   report                          сводка доходов, расходов и бюджетов
   total <income|expense> [категория1,категория2] [с YYYY-MM-DD по YYYY-MM-DD]
   transfer <логин-получателя> <сумма> [заметка]
-  export <путь> <json|csv>        импорт JSON: import <путь>
+  export <путь> <json|csv>        import <путь.json|путь.csv>
   help                            эта справка
   exit                            сохранить данные и завершить работу
 Пример: category expense Еда; expense Еда 300
@@ -51,6 +51,7 @@ def run(service: FinanceService) -> None:
             elif command == "login": service.login(*args); print("Вход выполнен.")
             elif command == "logout": service.logout(); print("Вы вышли из аккаунта.")
             elif command == "category": service.add_category(args[1], args[0]); print("Категория сохранена.")
+            elif command == "rename-category": service.rename_category(args[0], args[1]); print("Категория переименована.")
             elif command in ("income", "expense"):
                 warnings = service.add_operation(command, args[0], args[1], args[2] if len(args) > 2 else None,
                                                  " ".join(args[3:]) if len(args) > 3 else "")
@@ -65,7 +66,7 @@ def run(service: FinanceService) -> None:
                 print(f"Итого: {service.total(args[0], cats, since, until):.2f}")
             elif command == "transfer": service.transfer(args[0], args[1], " ".join(args[2:])); print("Перевод выполнен.")
             elif command == "export": service.export(args[0], args[1]); print("Экспорт завершён.")
-            elif command == "import": service.import_json(args[0]); print("Импорт завершён.")
+            elif command == "import": service.import_file(args[0]); print("Импорт завершён.")
             else: print("Неизвестная команда. Введите help.")
         except (ValueError, IndexError, OSError, KeyError) as error:
             print(f"Ошибка: {error}")
