@@ -73,6 +73,25 @@ class FinanceTests(unittest.TestCase):
         self.app.login("bob", "pass1234"); self.assertEqual(self.app.summary()["income"], 25)
     def test_transfer_to_self_rejected(self):
         with self.assertRaises(ValueError): self.app.transfer("alice", 1)
+    def test_transfer_to_user_without_session_login(self):
+        self.app.register("bob", "pass1234")
+        fresh = FinanceService(self.store)
+        fresh.login("alice", "pass1234")
+        fresh.transfer("bob", 25)
+        self.assertEqual(self.store.load("bob").operations[0].kind, "income")
+    def test_transfer_to_unknown_user_rejected(self):
+        with self.assertRaisesRegex(ValueError, "не найден"):
+            self.app.transfer("unknown", 10)
+    def test_rename_category_updates_budget_and_history(self):
+        self.setup_expenses(); self.app.add_operation("expense", "Еда", 50)
+        self.app.rename_category("Еда", "Продукты")
+        report = self.app.summary()
+        self.assertEqual(report["budgets"]["Продукты"]["remaining"], 950)
+        self.assertEqual(report["by_category"]["expense"]["Продукты"], 50)
+    def test_rename_category_rejects_duplicate(self):
+        self.setup_expenses()
+        with self.assertRaisesRegex(ValueError, "уже существует"):
+            self.app.rename_category("Еда", "Зарплата")
     def test_json_round_trip(self):
         self.setup_expenses(); self.app.add_operation("expense", "Еда", 80)
         path = Path(self.temp.name) / "backup.json"; self.app.export(str(path)); self.app.import_json(str(path))
@@ -81,6 +100,17 @@ class FinanceTests(unittest.TestCase):
         self.setup_expenses(); self.app.add_operation("expense", "Еда", 5)
         path = Path(self.temp.name) / "backup.csv"; self.app.export(str(path), "csv")
         self.assertIn("Еда", path.read_text(encoding="utf-8-sig"))
+    def test_csv_import(self):
+        self.setup_expenses()
+        path = Path(self.temp.name) / "transactions.csv"
+        path.write_text("kind,category,amount,created_at,note\nexpense,Еда,75,2025-01-01,покупка\n", encoding="utf-8")
+        self.app.import_file(str(path))
+        self.assertEqual(self.app.summary()["expense"], 75)
+    def test_csv_import_validates_columns(self):
+        path = Path(self.temp.name) / "broken.csv"
+        path.write_text("category,amount\nЕда,10\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "колонки"):
+            self.app.import_csv(str(path))
     def test_wallet_serialization(self):
         wallet = Wallet("alice"); self.assertEqual(Wallet.from_dict(wallet.to_dict()).username, "alice")
     def test_invalid_budget_category(self):
