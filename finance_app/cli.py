@@ -64,7 +64,10 @@ def run(service: FinanceService) -> None:
                 since = args[3] if len(args) > 3 else None
                 until = args[5] if len(args) > 5 else None
                 print(f"Итого: {service.total(args[0], cats, since, until):.2f}")
-            elif command == "transfer": service.transfer(args[0], args[1], " ".join(args[2:])); print("Перевод выполнен.")
+            elif command == "transfer":
+                warnings = service.transfer(args[0], args[1], " ".join(args[2:]))
+                print("Перевод выполнен.")
+                for warning in warnings: print("Внимание:", warning)
             elif command == "export": service.export(args[0], args[1]); print("Экспорт завершён.")
             elif command == "import": service.import_file(args[0]); print("Импорт завершён.")
             else: print("Неизвестная команда. Введите help.")
