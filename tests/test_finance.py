@@ -39,6 +39,10 @@ class FinanceTests(unittest.TestCase):
     def test_operation_kind_must_match_category(self):
         self.setup_expenses()
         with self.assertRaises(ValueError): self.app.add_operation("income", "Еда", 10)
+    def test_category_type_cannot_be_redefined(self):
+        self.setup_expenses()
+        with self.assertRaisesRegex(ValueError, "другим типом"):
+            self.app.add_category("Еда", "income")
     def test_budget_remaining(self):
         self.setup_expenses(); self.app.add_operation("expense", "Еда", 300)
         self.assertEqual(self.app.summary()["budgets"]["Еда"]["remaining"], 700)
