@@ -60,7 +60,7 @@ def run(service: FinanceService) -> None:
             elif command == "budget": service.set_budget(args[0], args[1]); print("Бюджет сохранён.")
             elif command == "report": print(format_report(service))
             elif command == "total":
-                cats = args[1].split(",") if len(args) > 1 else None
+                cats = [category.strip() for category in args[1].split(",")] if len(args) > 1 else None
                 since = args[3] if len(args) > 3 else None
                 until = args[5] if len(args) > 5 else None
                 print(f"Итого: {service.total(args[0], cats, since, until):.2f}")
