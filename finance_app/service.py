@@ -81,6 +81,24 @@ class FinanceService:
         wallet.categories[name] = kind
         self.store.save(wallet)
 
+    def rename_category(self, old_name: str, new_name: str) -> None:
+        wallet = self._wallet()
+        old_name, new_name = old_name.strip(), new_name.strip()
+        if old_name not in wallet.categories:
+            raise ValueError(f"Категория «{old_name}» не найдена.")
+        if not new_name:
+            raise ValueError("Новое название категории не может быть пустым.")
+        if new_name != old_name and new_name in wallet.categories:
+            raise ValueError(f"Категория «{new_name}» уже существует.")
+        if new_name != old_name:
+            wallet.categories[new_name] = wallet.categories.pop(old_name)
+            if old_name in wallet.budgets:
+                wallet.budgets[new_name] = wallet.budgets.pop(old_name)
+            for operation in wallet.operations:
+                if operation.category == old_name:
+                    operation.category = new_name
+            self.store.save(wallet)
+
     def add_operation(self, kind: str, category: str, amount: object, when: str | None = None, note: str = "") -> list[str]:
         wallet = self._wallet()
         if category not in wallet.categories:
@@ -142,14 +160,22 @@ class FinanceService:
         sender_wallet = self._wallet()
         if recipient == sender_wallet.username:
             raise ValueError("Нельзя переводить деньги самому себе.")
-        if recipient not in self.wallets:
-            raise ValueError("Получатель должен войти в приложение в текущем сеансе.")
+        if recipient not in self.users:
+            raise ValueError(f"Пользователь «{recipient}» не найден.")
+        recipient_wallet = self.wallets.get(recipient) or self.store.load(recipient)
+        if recipient_wallet is None:
+            recipient_wallet = Wallet(recipient)
+        self.wallets[recipient] = recipient_wallet
         value = money(amount)
-        sender = Operation.create("expense", f"Перевод {recipient}", value, note=note)
-        incoming = Operation.create("income", f"Перевод от {sender_wallet.username}", value, note=note)
+        sender_category = f"Перевод {recipient}"
+        recipient_category = f"Перевод от {sender_wallet.username}"
+        sender_wallet.categories[sender_category] = "expense"
+        recipient_wallet.categories[recipient_category] = "income"
+        sender = Operation.create("expense", sender_category, value, note=note)
+        incoming = Operation.create("income", recipient_category, value, note=note)
         sender_wallet.operations.append(sender)
-        self.wallets[recipient].operations.append(incoming)
-        self.store.save(sender_wallet); self.store.save(self.wallets[recipient])
+        recipient_wallet.operations.append(incoming)
+        self.store.save(sender_wallet); self.store.save(recipient_wallet)
 
     def export(self, path: str, format_: str = "json") -> None:
         wallet = self._wallet()
@@ -178,4 +204,36 @@ class FinanceService:
                 raise ValueError(f"Бюджет задан для неизвестной расходной категории: {category}.")
         self.wallets[wallet.username] = imported
         self.store.save(imported)
+
+    def import_csv(self, path: str) -> None:
+        wallet = self._wallet()
+        operations: list[Operation] = []
+        categories = dict(wallet.categories)
+        with Path(path).open("r", newline="", encoding="utf-8-sig") as file:
+            reader = csv.DictReader(file)
+            required = {"kind", "category", "amount"}
+            if not reader.fieldnames or not required.issubset(reader.fieldnames):
+                raise ValueError("CSV должен содержать колонки kind, category и amount.")
+            for row in reader:
+                operation = Operation.create(row["kind"], row["category"], row["amount"],
+                                             row.get("created_at") or None, row.get("note") or "")
+                expected = operation.kind
+                if operation.category in categories and categories[operation.category] != expected:
+                    raise ValueError(f"Тип категории «{operation.category}» не совпадает с CSV.")
+                categories[operation.category] = expected
+                operations.append(operation)
+        wallet.categories = categories
+        wallet.operations = operations
+        wallet.budgets = {name: amount for name, amount in wallet.budgets.items()
+                          if categories.get(name) == "expense"}
+        self.store.save(wallet)
+
+    def import_file(self, path: str) -> None:
+        suffix = Path(path).suffix.lower()
+        if suffix == ".json":
+            self.import_json(path)
+        elif suffix == ".csv":
+            self.import_csv(path)
+        else:
+            raise ValueError("Для импорта используйте файл .json или .csv.")
 
