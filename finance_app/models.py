@@ -1,12 +1,12 @@
 from dataclasses import asdict, dataclass, field
 from datetime import date
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from typing import Literal
 
 
 def money(value: object) -> Decimal:
     try:
-        result = Decimal(str(value)).quantize(Decimal("0.01"))
+        result = Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     except (InvalidOperation, ValueError):
         raise ValueError("Сумма должна быть числом.") from None
     if not result.is_finite() or result <= 0:
@@ -55,4 +55,3 @@ class Wallet:
     def from_dict(cls, data: dict) -> "Wallet":
         return cls(data["username"], dict(data.get("categories", {})), dict(data.get("budgets", {})),
                    [Operation(**item) for item in data.get("operations", [])])
-
