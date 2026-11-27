@@ -86,6 +86,11 @@ class FinanceTests(unittest.TestCase):
     def test_transfer_to_unknown_user_rejected(self):
         with self.assertRaisesRegex(ValueError, "не найден"):
             self.app.transfer("unknown", 10)
+    def test_transfer_warns_when_sender_balance_is_negative(self):
+        self.app.register("bob", "pass1234")
+        fresh = FinanceService(self.store)
+        fresh.login("alice", "pass1234")
+        self.assertIn("Расходы превысили доходы", fresh.transfer("bob", 10)[0])
     def test_rename_category_updates_budget_and_history(self):
         self.setup_expenses(); self.app.add_operation("expense", "Еда", 50)
         self.app.rename_category("Еда", "Продукты")
